@@ -77,7 +77,7 @@ namespace QuantConnect.Brokerages.TDAmeritrade
         private ManualResetEvent _onUpdateOrderWebSocketResponseEvent = new ManualResetEvent(false);
 
         /// <summary>
-        /// Thread synchronization event, for successful Place Order in Lean 
+        /// Thread synchronization event, for successful Place Order in Lean
         /// </summary>
         private ManualResetEvent _onPlaceOrderBrokerageIdResponseEvent = new ManualResetEvent(true);
 
@@ -96,14 +96,12 @@ namespace QuantConnect.Brokerages.TDAmeritrade
             string accessToken,
             string accountNumber,
             IAlgorithm algorithm,
-            IDataAggregator aggregator,
-            IOrderProvider orderProvider,
-            IMapFileProvider mapFileProvider) : base("TD Ameritrade")
+            IOrderProvider orderProvider) : base("TD Ameritrade")
         {
             _algorithm = algorithm;
             _orderProvider = orderProvider;
 
-            Initialize(consumerKey, accessToken, accountNumber, mapFileProvider, aggregator);
+            Initialize(consumerKey, accessToken, accountNumber);
         }
 
         #region TD Ameritrade client
@@ -114,7 +112,7 @@ namespace QuantConnect.Brokerages.TDAmeritrade
             {
                 var bearerToken = GetBearerTokenSession();
                 // Update access token in request parameter
-                RestClient.AddOrUpdateDefaultParameter(new Parameter("Authorization", bearerToken.BearerToken, ParameterType.HttpHeader));
+                RestClient.AddOrUpdateDefaultParameter(new RestSharp.Parameter("Authorization", bearerToken.BearerToken, ParameterType.HttpHeader));
             }
 
             var untypedResponse = RestClient.Execute(request);
@@ -135,7 +133,7 @@ namespace QuantConnect.Brokerages.TDAmeritrade
 
             try
             {
-                // api sometimes returns message in response 
+                // api sometimes returns message in response
                 if (typeof(T) == typeof(String))
                 {
                     return (T)(object)untypedResponse.Content;
@@ -299,17 +297,18 @@ namespace QuantConnect.Brokerages.TDAmeritrade
 
         #endregion
 
-        private void Initialize(string consumerKey, string accessToken, string accountNumber, IMapFileProvider mapFileProvider, IDataAggregator aggregator)
+        private void Initialize(string consumerKey, string accessToken, string accountNumber)
         {
             if (IsInitialized)
             {
                 return;
             }
 
-            _aggregator = aggregator;
+            _aggregator = Composer.Instance.GetPart<IDataAggregator>();
             _consumerKey = consumerKey;
             _accessToken = accessToken;
             _accountNumber = accountNumber;
+            var mapFileProvider = Composer.Instance.GetPart<IMapFileProvider>();
             _symbolMapper = new TDAmeritradeSymbolMapper(mapFileProvider);
 
             RestClient = new RestClient(_restApiUrl);
@@ -347,10 +346,10 @@ namespace QuantConnect.Brokerages.TDAmeritrade
         {
             try
             {
-                var productId = 226;
-                var userId = Config.GetInt("job-user-id");
-                var token = Config.Get("api-access-token");
-                var organizationId = Config.Get("job-organization-id", null);
+                const int productId = 226;
+                var userId = Globals.UserId;
+                var token = Globals.UserToken;
+                var organizationId = Globals.OrganizationID;
                 // Verify we can authenticate with this user and token
                 var api = new ApiConnection(userId, token);
                 if (!api.Connected)
